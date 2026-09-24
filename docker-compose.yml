@@ -1,0 +1,45 @@
+services:
+  app:
+    build:
+      context: ./docker/php
+    container_name: letjr_app
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mysql
+      - mailpit
+    command: php -S 0.0.0.0:8000 -t public
+
+  mysql:
+    image: mysql:8.0
+    container_name: letjr_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: laravel
+      MYSQL_USER: laravel
+      MYSQL_PASSWORD: laravel
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  adminer:
+    image: adminer
+    container_name: letjr_adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+
+  mailpit:
+    image: axllent/mailpit
+    container_name: letjr_mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  mysql_data:

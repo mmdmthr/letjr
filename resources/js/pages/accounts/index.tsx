@@ -14,7 +14,7 @@ type AccountRecord = {
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'EUR',
+    currency: 'IDR',
     minimumFractionDigits: 2,
 });
 

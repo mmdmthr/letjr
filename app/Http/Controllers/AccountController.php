@@ -16,30 +16,29 @@ class AccountController extends Controller
 {
     public function index(): Response
     {
-        $allAccounts = Account::query()
+        $accounts = Account::query()
             ->orderBy('name')
-            ->get()
-            ->all();
+            ->get();
 
-        $accounts = collect($allAccounts)->groupBy('parent_id');
+        $accountsByParent = $accounts->groupBy('parent_id');
+
         $accountBalances = Entry::query()
-            ->whereIn('account_id', collect($allAccounts)->pluck('id'))
-            ->whereHas('transaction', fn ($query) => $query->whereDate('date', '<=', Carbon::today()))
+            ->whereIn('account_id', $accounts->pluck('id'))
+            ->whereHas(
+                'transaction',
+                fn ($query) => $query->whereDate('date', '<=', Carbon::today())
+            )
             ->selectRaw('account_id, SUM(amount) as balance')
             ->groupBy('account_id')
             ->pluck('balance', 'account_id')
             ->map(fn (mixed $balance): float => (float) $balance);
 
-        $rootDefinitions = [
-            ['name' => 'Assets', 'type' => AccountType::ASSET->value],
-            ['name' => 'Liabilities', 'type' => AccountType::LIABILITY->value],
-            ['name' => 'Equity', 'type' => AccountType::EQUITY->value],
-            ['name' => 'Income', 'type' => AccountType::INCOME->value],
-            ['name' => 'Expenses', 'type' => AccountType::EXPENSE->value],
-        ];
-
-        $serializeAccount = function (Account $account) use (&$serializeAccount, $accounts, $accountBalances): array {
-            $children = $accounts
+        $serializeAccount = function (Account $account) use (
+            &$serializeAccount,
+            $accountsByParent,
+            $accountBalances
+        ): array {
+            $children = $accountsByParent
                 ->get($account->id, collect())
                 ->sortBy('name')
                 ->map($serializeAccount)
@@ -51,40 +50,30 @@ class AccountController extends Controller
                 'name' => $account->name,
                 'type' => $account->type,
                 'parent_id' => $account->parent_id,
-                'balance' => (float) ($accountBalances->get($account->id, 0) + collect($children)->sum('balance')),
+                'balance' => (float) (
+                    $accountBalances->get($account->id, 0)
+                    + collect($children)->sum('balance')
+                ),
                 'children' => $children,
             ];
         };
 
-        $rootAccounts = collect($rootDefinitions)->map(function (array $root) use ($accounts, $allAccounts, $accountBalances, $serializeAccount): array {
-            $rootAccount = collect($allAccounts)->first(fn (Account $account) => $account->parent_id === null
-                && $account->name === $root['name']
-                && $account->type === $root['type']
-            );
-
-            $children = $accounts
-                ->get($rootAccount?->id, collect())
-                ->merge($accounts->get(null, collect())->filter(fn (Account $account) => $account->type === $root['type']
-                    && $account->id !== $rootAccount?->id
-                ))
-                ->sortBy('name')
-                ->map($serializeAccount)
-                ->values()
-                ->all();
-
-            return [
-                'id' => $rootAccount?->id,
-                'name' => $root['name'],
-                'type' => $root['type'],
-                'parent_id' => null,
-                'balance' => (float) (($rootAccount instanceof Account ? $accountBalances->get($rootAccount->id, 0) : 0) + collect($children)->sum('balance')),
-                'children' => $children,
-            ];
-        })->all();
+        $rootAccounts = $accountsByParent
+            ->get(null, collect())
+            ->sortBy('name')
+            ->map($serializeAccount)
+            ->values()
+            ->all();
 
         return Inertia::render('accounts/index', [
             'accounts' => $rootAccounts,
-            'accountTypes' => array_map(fn (AccountType $type) => $type->value, AccountType::cases()),
+            'accountTypes' => array_map(
+                fn (AccountType $type) => [
+                    'value' => $type->value,
+                    'label' => ucfirst($type->value),
+                ],
+                AccountType::cases()
+            ),
         ]);
     }
 

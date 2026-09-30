@@ -6,7 +6,7 @@ import { index as ledgerIndex } from '@/routes/ledger';
 type AccountRecord = {
     id: number;
     name: string;
-    type: string;
+    type: { value: string; label: string };
     parent_id: number | null;
     balance: number;
     children: AccountRecord[];
@@ -76,7 +76,7 @@ function AccountRow({
                     )}
                 </div>
                 <span className="truncate text-xs tracking-wide text-slate-500 uppercase">
-                    {account.type}
+                    {account.type.label}
                 </span>
                 <span className="text-right text-slate-700 tabular-nums">
                     {currencyFormatter.format(account.balance)}
@@ -172,8 +172,8 @@ export default function AccountsIndex({
                                     defaultValue={accountTypes[0]}
                                 >
                                     {accountTypes.map((type) => (
-                                        <option key={type} value={type}>
-                                            {type}
+                                        <option key={type.value} value={type.value}>
+                                            {type.label}
                                         </option>
                                     ))}
                                 </select>

@@ -26,7 +26,7 @@ class AccountTest extends TestCase
         $dining = Account::query()->create(['name' => 'Dining', 'type' => 'Expense']);
         $liabilities = Account::query()->create(['name' => 'Liabilities', 'type' => 'Liability']);
         $equity = Account::query()->create(['name' => 'Equity', 'type' => 'Equity']);
-        Account::query()->create(['name' => 'Income', 'type' => 'Revenue']);
+        Account::query()->create(['name' => 'Income', 'type' => 'Income']);
         Account::query()->create(['name' => 'Expenses', 'type' => 'Expense']);
 
         $transaction = Transaction::query()->create([

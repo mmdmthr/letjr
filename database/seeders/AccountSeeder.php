@@ -14,7 +14,7 @@ class AccountSeeder extends Seeder
             ['name' => 'Assets', 'type' => AccountType::ASSET->value],
             ['name' => 'Liabilities', 'type' => AccountType::LIABILITY->value],
             ['name' => 'Equity', 'type' => AccountType::EQUITY->value],
-            ['name' => 'Income', 'type' => AccountType::REVENUE->value],
+            ['name' => 'Income', 'type' => AccountType::INCOME->value],
             ['name' => 'Expenses', 'type' => AccountType::EXPENSE->value],
         ] as $rootAccount) {
             Account::query()->firstOrCreate(

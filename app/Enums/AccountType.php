@@ -4,9 +4,9 @@ namespace App\Enums;
 
 enum AccountType: string
 {
-    case ASSET = 'Asset';
-    case LIABILITY = 'Liability';
-    case EQUITY = 'Equity';
-    case REVENUE = 'Revenue';
-    case EXPENSE = 'Expense';
+    case ASSET = 'asset';
+    case LIABILITY = 'liability';
+    case EQUITY = 'equity';
+    case INCOME = 'income';
+    case EXPENSE = 'expense';
 }

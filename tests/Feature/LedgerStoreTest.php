@@ -35,9 +35,9 @@ class LedgerStoreTest extends TestCase
             'type' => 'asset',
         ]);
 
-        $revenue = Account::query()->create([
-            'name' => 'Revenue',
-            'type' => 'revenue',
+        $income = Account::query()->create([
+            'name' => 'Income',
+            'type' => 'income',
         ]);
 
         $response = $this->post(route('ledger.store'), [
@@ -45,7 +45,7 @@ class LedgerStoreTest extends TestCase
             'description' => 'Service invoice',
             'entries' => [
                 ['account_id' => $cash->id, 'amount' => 1250, 'memo' => 'received cash'],
-                ['account_id' => $revenue->id, 'amount' => -1250, 'memo' => 'revenue earned'],
+                ['account_id' => $income->id, 'amount' => -1250, 'memo' => 'income earned'],
             ],
         ]);
 

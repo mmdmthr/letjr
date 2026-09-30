@@ -14,8 +14,16 @@ return new class extends Migration
         Schema::create('accounts', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->string('type');
-            $table->foreignId('parent_id')->nullable()->constrained('accounts')->nullOnDelete();
+            $table->enum('type', [
+                'asset',
+                'liability',
+                'equity',
+                'income',
+                'expense',
+            ]);
+            $table->foreignId('parent_id')
+                ->nullable()
+                ->constrained('accounts');
             $table->timestamps();
         });
     }

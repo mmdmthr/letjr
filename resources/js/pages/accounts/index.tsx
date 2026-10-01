@@ -195,7 +195,7 @@ export default function AccountsIndex({
                                 </label>
                                 <input
                                     name="name"
-                                    className="w-full rounded border border-slate-300 px-3 py-2"
+                                    className="w-full rounded border border-slate-300 px-3 py-2 text-slate-900"
                                     required
                                 />
                             </div>
@@ -207,7 +207,7 @@ export default function AccountsIndex({
                                     name="type"
                                     value={selectedType}
                                     onChange={(event) => setSelectedType(event.target.value)}
-                                    className="w-full rounded border border-slate-300 px-3 py-2"
+                                    className="w-full rounded border border-slate-300 px-3 py-2 text-slate-900"
                                 >
                                     {accountTypes.map((type) => (
                                         <option key={type.value} value={type.value}>
@@ -222,7 +222,7 @@ export default function AccountsIndex({
                                 </label>
                                 <select
                                     name="parent_id"
-                                    className="w-full rounded border border-slate-300 px-3 py-2"
+                                    className="w-full rounded border border-slate-300 px-3 py-2 text-slate-900"
                                 >
                                     <option value="">None</option>
 

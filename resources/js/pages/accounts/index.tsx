@@ -1,6 +1,34 @@
-import { Head, Link } from '@inertiajs/react';
-import { ChevronDown, ChevronRight, Landmark } from 'lucide-react';
+import { Head, Link, usePage } from '@inertiajs/react';
+import {
+    ChevronDown,
+    ChevronRight,
+    Landmark,
+    MoreHorizontal,
+    Plus,
+} from 'lucide-react';
 import { Fragment, useState } from 'react';
+import AccountController from '@/actions/App/Http/Controllers/AccountController';
+import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { index as ledgerIndex } from '@/routes/ledger';
 
 type AccountRecord = {
@@ -25,9 +53,15 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
 
 function AccountRow({
     account,
+    accountTypes,
+    onUpdate,
+    onDelete,
     depth = 0,
 }: {
     account: AccountRecord;
+    accountTypes: AccountTypeOption[];
+    onUpdate: (account: AccountRecord) => void;
+    onDelete: (account: AccountRecord) => void;
     depth?: number;
 }) {
     const [isExpanded, setIsExpanded] = useState(true);
@@ -35,7 +69,7 @@ function AccountRow({
 
     return (
         <div>
-            <div className="grid grid-cols-[minmax(0,1fr)_7rem_8rem] items-center gap-3 border-b border-slate-100 py-2 pr-3 text-sm last:border-b-0">
+            <div className="grid grid-cols-[minmax(0,1fr)_7rem_8rem_2.25rem] items-center gap-3 border-b border-slate-100 py-2 pr-3 text-sm last:border-b-0">
                 <div
                     className="flex min-w-0 items-center gap-1"
                     style={{ paddingLeft: `${depth * 1.5}rem` }}
@@ -81,11 +115,17 @@ function AccountRow({
                     )}
                 </div>
                 <span className="truncate text-xs tracking-wide text-slate-500 uppercase">
-                    {account.type.label}
+                    {accountTypes.find((type) => type.value === account.type)
+                        ?.label ?? account.type}
                 </span>
                 <span className="text-right text-slate-700 tabular-nums">
                     {currencyFormatter.format(account.balance)}
                 </span>
+                <AccountActions
+                    account={account}
+                    onUpdate={onUpdate}
+                    onDelete={onDelete}
+                />
             </div>
             {hasChildren &&
                 isExpanded &&
@@ -93,6 +133,9 @@ function AccountRow({
                     <AccountRow
                         key={child.id}
                         account={child}
+                        accountTypes={accountTypes}
+                        onUpdate={onUpdate}
+                        onDelete={onDelete}
                         depth={depth + 1}
                     />
                 ))}
@@ -103,28 +146,256 @@ function AccountRow({
 function AccountOptions({
     accounts,
     depth = 0,
+    excludedIds,
 }: {
     accounts: AccountRecord[];
     depth?: number;
+    excludedIds: Set<number>;
 }) {
     return (
         <>
             {accounts.map((account) => (
                 <Fragment key={account.id}>
-                    <option value={account.id}>
-                        {'\u00A0\u00A0'.repeat(depth)}
-                        {account.name}
-                    </option>
+                    {!excludedIds.has(account.id) && (
+                        <SelectItem
+                            value={String(account.id)}
+                            textValue={account.name}
+                        >
+                            <span aria-hidden="true">
+                                {'\u00A0\u00A0'.repeat(depth)}
+                            </span>
+                            {account.name}
+                        </SelectItem>
+                    )}
 
                     <AccountOptions
                         accounts={account.children}
                         depth={depth + 1}
+                        excludedIds={excludedIds}
                     />
                 </Fragment>
             ))}
         </>
     );
 }
+
+function findAccount(
+    accounts: AccountRecord[],
+    id: number,
+): AccountRecord | undefined {
+    for (const account of accounts) {
+        if (account.id === id) {
+            return account;
+        }
+
+        const child = findAccount(account.children, id);
+        if (child) {
+            return child;
+        }
+    }
+
+    return undefined;
+}
+
+function getAccountAndDescendantIds(account: AccountRecord): number[] {
+    return [
+        account.id,
+        ...account.children.flatMap(getAccountAndDescendantIds),
+    ];
+}
+
+function AccountForm({
+    accounts,
+    accountTypes,
+    account,
+}: {
+    accounts: AccountRecord[];
+    accountTypes: AccountTypeOption[];
+    account?: AccountRecord;
+}) {
+    const [selectedType, setSelectedType] = useState(
+        account?.type ?? accountTypes[0]?.value ?? '',
+    );
+    const [parentId, setParentId] = useState(
+        account?.parent_id === null || account?.parent_id === undefined
+            ? 'none'
+            : String(account.parent_id),
+    );
+    const excludedIds = account
+        ? new Set(getAccountAndDescendantIds(account))
+        : new Set<number>();
+    const selectedRootAccounts = accounts.filter(
+        (root) => root.type === selectedType,
+    );
+    const parentAccount =
+        parentId === 'none'
+            ? undefined
+            : findAccount(accounts, Number(parentId));
+
+    function handleTypeChange(type: string) {
+        setSelectedType(type);
+
+        const nextRootAccounts = accounts.filter((root) => root.type === type);
+        if (
+            parentId !== 'none' &&
+            !nextRootAccounts.some((root) =>
+                getAccountAndDescendantIds(root).includes(Number(parentId)),
+            )
+        ) {
+            setParentId('none');
+        }
+    }
+
+    return (
+        <form
+            method="post"
+            action={
+                account
+                    ? AccountController.update.url(account.id)
+                    : AccountController.store.url()
+            }
+            className="space-y-3"
+        >
+            <input
+                type="hidden"
+                name="_token"
+                value={
+                    document
+                        .querySelector('meta[name="csrf-token"]')
+                        ?.getAttribute('content') ?? ''
+                }
+            />
+            {account && <input type="hidden" name="_method" value="PATCH" />}
+            <div>
+                <label
+                    htmlFor="account-name"
+                    className="mb-1 block text-sm font-medium text-slate-700"
+                >
+                    Name
+                </label>
+                <input
+                    id="account-name"
+                    name="name"
+                    defaultValue={account?.name}
+                    className="w-full rounded border border-slate-300 px-3 py-2 text-slate-900"
+                    required
+                />
+            </div>
+            <div>
+                <label
+                    htmlFor="account-type"
+                    className="mb-1 block text-sm font-medium text-slate-700"
+                >
+                    Type
+                </label>
+                <select
+                    id="account-type"
+                    name="type"
+                    value={selectedType}
+                    onChange={(event) => handleTypeChange(event.target.value)}
+                    className="w-full rounded border border-slate-300 px-3 py-2 text-slate-900"
+                >
+                    {accountTypes.map((type) => (
+                        <option key={type.value} value={type.value}>
+                            {type.label}
+                        </option>
+                    ))}
+                </select>
+            </div>
+            <div className="space-y-1">
+                <label
+                    htmlFor="account-parent"
+                    className="block text-sm font-medium text-slate-700"
+                >
+                    Parent account
+                </label>
+                <input
+                    type="hidden"
+                    name="parent_id"
+                    value={parentId === 'none' ? '' : parentId}
+                />
+                <Select value={parentId} onValueChange={setParentId}>
+                    <SelectTrigger
+                        id="account-parent"
+                        className="h-auto w-full rounded border-slate-300 px-3 py-2 text-slate-900 shadow-none"
+                    >
+                        <SelectValue>
+                            {parentAccount?.name ?? 'None'}
+                        </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent align="start">
+                        <SelectItem value="none">None</SelectItem>
+                        <AccountOptions
+                            accounts={selectedRootAccounts}
+                            excludedIds={excludedIds}
+                        />
+                    </SelectContent>
+                </Select>
+            </div>
+            <button
+                type="submit"
+                className="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+            >
+                {account ? 'Update account' : 'Create account'}
+            </button>
+        </form>
+    );
+}
+
+function AccountActions({
+    account,
+    onUpdate,
+    onDelete,
+}: {
+    account: AccountRecord;
+    onUpdate: (account: AccountRecord) => void;
+    onDelete: (account: AccountRecord) => void;
+}) {
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Actions for ${account.name}`}
+                    title="Account actions"
+                    onClick={(event) => event.stopPropagation()}
+                >
+                    <MoreHorizontal />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+                align="end"
+                onClick={(event) => event.stopPropagation()}
+            >
+                <DropdownMenuItem
+                    onSelect={(event) => {
+                        event.stopPropagation();
+                        onUpdate(account);
+                    }}
+                >
+                    Update account
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                    variant="destructive"
+                    onSelect={(event) => {
+                        event.stopPropagation();
+                        onDelete(account);
+                    }}
+                >
+                    Delete account
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+}
+
+type AccountDialogState =
+    | { type: 'create' }
+    | { type: 'update'; account: AccountRecord }
+    | { type: 'delete'; account: AccountRecord }
+    | null;
 
 export default function AccountsIndex({
     accounts,
@@ -133,12 +404,9 @@ export default function AccountsIndex({
     accounts: AccountRecord[];
     accountTypes: AccountTypeOption[];
 }) {
-    const [selectedType, setSelectedType] = useState(
-        accountTypes[0]?.value ?? '',
-    );
-    const selectedRootAccounts = accounts.filter(
-        (account) => account.type === selectedType,
-    );
+    const [dialog, setDialog] = useState<AccountDialogState>(null);
+    const { errors } = usePage().props as { errors?: { account?: string } };
+
     return (
         <>
             <Head title="Accounts" />
@@ -149,96 +417,129 @@ export default function AccountsIndex({
                     </h1>
                 </div>
 
-                <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-                    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                        <h2 className="mb-4 text-lg font-medium text-slate-900">
+                <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="mb-4 flex items-center justify-between gap-4">
+                        <h2 className="text-lg font-medium text-slate-900">
                             Accounts
                         </h2>
-                        <div className="overflow-hidden rounded border border-slate-200">
-                            <div className="grid grid-cols-[minmax(0,1fr)_7rem_8rem] gap-3 border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">
-                                <span>Account name</span>
-                                <span>Type</span>
-                                <span className="text-right">Total</span>
-                            </div>
-                            {accounts.map((account) => (
-                                <AccountRow
-                                    key={account.id}
-                                    account={account}
-                                />
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                        <h2 className="mb-4 text-lg font-medium text-slate-900">
-                            New account
-                        </h2>
-                        <form
-                            method="post"
-                            action="/accounts"
-                            className="space-y-3"
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            aria-label="Create account"
+                            title="New account"
+                            onClick={() => setDialog({ type: 'create' })}
                         >
-                            <input
-                                type="hidden"
-                                name="_token"
-                                value={
-                                    document
-                                        .querySelector(
-                                            'meta[name="csrf-token"]',
-                                        )
-                                        ?.getAttribute('content') ?? ''
+                            <Plus />
+                        </Button>
+                    </div>
+                    {errors?.account && (
+                        <p role="alert" className="mb-3 text-sm text-red-700">
+                            {errors.account}
+                        </p>
+                    )}
+                    <div className="overflow-hidden rounded border border-slate-200">
+                        <div className="grid grid-cols-[minmax(0,1fr)_7rem_8rem_2.25rem] gap-3 border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">
+                            <span>Account name</span>
+                            <span>Type</span>
+                            <span className="text-right">Total</span>
+                            <span />
+                        </div>
+                        {accounts.map((account) => (
+                            <AccountRow
+                                key={account.id}
+                                account={account}
+                                accountTypes={accountTypes}
+                                onUpdate={(selectedAccount) =>
+                                    setDialog({
+                                        type: 'update',
+                                        account: selectedAccount,
+                                    })
+                                }
+                                onDelete={(selectedAccount) =>
+                                    setDialog({
+                                        type: 'delete',
+                                        account: selectedAccount,
+                                    })
                                 }
                             />
-                            <div>
-                                <label className="mb-1 block text-sm font-medium text-slate-700">
-                                    Name
-                                </label>
-                                <input
-                                    name="name"
-                                    className="w-full rounded border border-slate-300 px-3 py-2 text-slate-900"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="mb-1 block text-sm font-medium text-slate-700">
-                                    Type
-                                </label>
-                                <select
-                                    name="type"
-                                    value={selectedType}
-                                    onChange={(event) => setSelectedType(event.target.value)}
-                                    className="w-full rounded border border-slate-300 px-3 py-2 text-slate-900"
-                                >
-                                    {accountTypes.map((type) => (
-                                        <option key={type.value} value={type.value}>
-                                            {type.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="mb-1 block text-sm font-medium text-slate-700">
-                                    Parent account
-                                </label>
-                                <select
-                                    name="parent_id"
-                                    className="w-full rounded border border-slate-300 px-3 py-2 text-slate-900"
-                                >
-                                    <option value="">None</option>
-
-                                    <AccountOptions accounts={selectedRootAccounts} />
-                                </select>
-                            </div>
-                            <button
-                                type="submit"
-                                className="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white"
-                            >
-                                Create account
-                            </button>
-                        </form>
+                        ))}
                     </div>
                 </div>
             </div>
+            <Dialog
+                open={dialog !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setDialog(null);
+                    }
+                }}
+            >
+                <DialogContent>
+                    {dialog?.type === 'create' && (
+                        <>
+                            <DialogTitle>New account</DialogTitle>
+                            <AccountForm
+                                accounts={accounts}
+                                accountTypes={accountTypes}
+                            />
+                        </>
+                    )}
+                    {dialog?.type === 'update' && (
+                        <>
+                            <DialogTitle>Update account</DialogTitle>
+                            <AccountForm
+                                key={dialog.account.id}
+                                accounts={accounts}
+                                accountTypes={accountTypes}
+                                account={dialog.account}
+                            />
+                        </>
+                    )}
+                    {dialog?.type === 'delete' && (
+                        <>
+                            <DialogTitle>Delete account</DialogTitle>
+                            <DialogDescription>
+                                Delete {dialog.account.name}? Its ledger entries
+                                will also be permanently deleted. Accounts with
+                                child accounts cannot be deleted.
+                            </DialogDescription>
+                            <form
+                                method="post"
+                                action={AccountController.destroy.url(
+                                    dialog.account.id,
+                                )}
+                                className="flex justify-end gap-2"
+                            >
+                                <input
+                                    type="hidden"
+                                    name="_token"
+                                    value={
+                                        document
+                                            .querySelector(
+                                                'meta[name="csrf-token"]',
+                                            )
+                                            ?.getAttribute('content') ?? ''
+                                    }
+                                />
+                                <input
+                                    type="hidden"
+                                    name="_method"
+                                    value="DELETE"
+                                />
+                                <DialogClose asChild>
+                                    <Button type="button" variant="secondary">
+                                        Cancel
+                                    </Button>
+                                </DialogClose>
+                                <Button type="submit" variant="destructive">
+                                    Delete account
+                                </Button>
+                            </form>
+                        </>
+                    )}
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

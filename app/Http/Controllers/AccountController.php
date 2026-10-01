@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -86,6 +87,31 @@ class AccountController extends Controller
         ]);
 
         Account::query()->create($validated);
+
+        return Redirect::route('accounts.index');
+    }
+
+    public function update(Request $request, Account $account): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'type' => ['required', 'string', 'in:'.implode(',', array_map(fn (AccountType $type) => $type->value, AccountType::cases()))],
+            'parent_id' => ['nullable', 'exists:accounts,id', Rule::notIn([$account->id])],
+        ]);
+
+        $account->update($validated);
+
+        return Redirect::route('accounts.index');
+    }
+
+    public function destroy(Account $account): RedirectResponse
+    {
+        if ($account->children()->exists()) {
+            return Redirect::route('accounts.index')
+                ->withErrors(['account' => 'Accounts with child accounts cannot be deleted.']);
+        }
+
+        $account->delete();
 
         return Redirect::route('accounts.index');
     }

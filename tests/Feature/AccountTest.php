@@ -54,4 +54,69 @@ class AccountTest extends TestCase
             ->where('accounts.4.balance', 25)
             ->has('accounts', 5));
     }
+
+    public function test_account_can_be_updated(): void
+    {
+        $user = User::factory()->create();
+        $parent = Account::query()->create(['name' => 'Assets', 'type' => 'asset']);
+        $account = Account::query()->create(['name' => 'Cash', 'type' => 'asset']);
+
+        $response = $this->actingAs($user)->patch(route('accounts.update', $account), [
+            'name' => 'Wallet',
+            'type' => 'asset',
+            'parent_id' => $parent->id,
+        ]);
+
+        $response->assertRedirect(route('accounts.index'));
+        $this->assertDatabaseHas('accounts', [
+            'id' => $account->id,
+            'name' => 'Wallet',
+            'parent_id' => $parent->id,
+        ]);
+    }
+
+    public function test_account_cannot_be_its_own_parent(): void
+    {
+        $user = User::factory()->create();
+        $account = Account::query()->create(['name' => 'Cash', 'type' => 'asset']);
+
+        $response = $this->actingAs($user)->patch(route('accounts.update', $account), [
+            'name' => 'Cash',
+            'type' => 'asset',
+            'parent_id' => (string) $account->id,
+        ]);
+
+        $response->assertSessionHasErrors('parent_id');
+        $this->assertDatabaseHas('accounts', [
+            'id' => $account->id,
+            'parent_id' => null,
+        ]);
+    }
+
+    public function test_account_can_be_deleted(): void
+    {
+        $user = User::factory()->create();
+        $account = Account::query()->create(['name' => 'Cash', 'type' => 'asset']);
+
+        $response = $this->actingAs($user)->delete(route('accounts.destroy', $account));
+
+        $response->assertRedirect(route('accounts.index'));
+        $this->assertDatabaseMissing('accounts', ['id' => $account->id]);
+    }
+
+    public function test_account_with_children_cannot_be_deleted(): void
+    {
+        $user = User::factory()->create();
+        $parent = Account::query()->create(['name' => 'Assets', 'type' => 'asset']);
+        Account::query()->create([
+            'name' => 'Cash',
+            'type' => 'asset',
+            'parent_id' => $parent->id,
+        ]);
+
+        $response = $this->actingAs($user)->delete(route('accounts.destroy', $parent));
+
+        $response->assertSessionHasErrors('account');
+        $this->assertDatabaseHas('accounts', ['id' => $parent->id]);
+    }
 }

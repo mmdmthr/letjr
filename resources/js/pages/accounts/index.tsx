@@ -112,7 +112,7 @@ function AccountOptions({
             {accounts.map((account) => (
                 <Fragment key={account.id}>
                     <option value={account.id}>
-                        {'— '.repeat(depth)}
+                        {'\u00A0\u00A0'.repeat(depth)}
                         {account.name}
                     </option>
 

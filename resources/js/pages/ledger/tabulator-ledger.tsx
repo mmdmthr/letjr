@@ -139,7 +139,7 @@ function CounterpartSearchField({
         const term = value.trim().toLowerCase();
 
         if (!term) {
-            return options.slice(0, 12);
+            return options.slice(0, 20);
         }
 
         return options.filter((option) => option.label.toLowerCase().includes(term));
@@ -157,20 +157,24 @@ function CounterpartSearchField({
         if (event.key === 'ArrowDown') {
             event.preventDefault();
             setSelectedIndex((current) => (current + 1) % filteredOptions.length);
+            setIsOpen(true);
             return;
         }
 
         if (event.key === 'ArrowUp') {
             event.preventDefault();
             setSelectedIndex((current) => (current - 1 + filteredOptions.length) % filteredOptions.length);
+            setIsOpen(true);
             return;
         }
 
         if (event.key === 'Enter') {
             event.preventDefault();
             const option = filteredOptions[selectedIndex] ?? filteredOptions[0];
+
             if (option) {
                 onSelect(option);
+                setIsOpen(false);
             }
         }
     };
@@ -183,7 +187,9 @@ function CounterpartSearchField({
                 value={value}
                 placeholder="Search account..."
                 onFocus={() => setIsOpen(true)}
-                onBlur={() => setTimeout(() => setIsOpen(false), 120)}
+                onBlur={() => {
+                    window.setTimeout(() => setIsOpen(false), 120);
+                }}
                 onChange={(event) => {
                     onChange(event.target.value);
                     setIsOpen(true);
@@ -200,7 +206,9 @@ function CounterpartSearchField({
                             onMouseDown={(event) => {
                                 event.preventDefault();
                                 onSelect(option);
+                                setIsOpen(false);
                             }}
+                            onClick={() => setIsOpen(false)}
                             className={[
                                 'flex w-full items-center justify-between px-3 py-2 text-left text-sm transition',
                                 index === selectedIndex ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-50',

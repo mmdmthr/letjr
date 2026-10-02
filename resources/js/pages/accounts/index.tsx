@@ -6,8 +6,9 @@ import {
     MoreHorizontal,
     Plus,
 } from 'lucide-react';
-import { Fragment, useState } from 'react';
+import { useState } from 'react';
 import AccountController from '@/actions/App/Http/Controllers/AccountController';
+import { AccountSelectTree } from '@/components/accounts/account-select-tree';
 import {
     Dialog,
     DialogClose,
@@ -22,13 +23,6 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { index as ledgerIndex } from '@/routes/ledger';
 
 type AccountRecord = {
@@ -143,60 +137,6 @@ function AccountRow({
     );
 }
 
-function AccountOptions({
-    accounts,
-    depth = 0,
-    excludedIds,
-}: {
-    accounts: AccountRecord[];
-    depth?: number;
-    excludedIds: Set<number>;
-}) {
-    return (
-        <>
-            {accounts.map((account) => (
-                <Fragment key={account.id}>
-                    {!excludedIds.has(account.id) && (
-                        <SelectItem
-                            value={String(account.id)}
-                            textValue={account.name}
-                        >
-                            <span aria-hidden="true">
-                                {'\u00A0\u00A0'.repeat(depth)}
-                            </span>
-                            {account.name}
-                        </SelectItem>
-                    )}
-
-                    <AccountOptions
-                        accounts={account.children}
-                        depth={depth + 1}
-                        excludedIds={excludedIds}
-                    />
-                </Fragment>
-            ))}
-        </>
-    );
-}
-
-function findAccount(
-    accounts: AccountRecord[],
-    id: number,
-): AccountRecord | undefined {
-    for (const account of accounts) {
-        if (account.id === id) {
-            return account;
-        }
-
-        const child = findAccount(account.children, id);
-        if (child) {
-            return child;
-        }
-    }
-
-    return undefined;
-}
-
 function getAccountAndDescendantIds(account: AccountRecord): number[] {
     return [
         account.id,
@@ -224,14 +164,6 @@ function AccountForm({
     const excludedIds = account
         ? new Set(getAccountAndDescendantIds(account))
         : new Set<number>();
-    const selectedRootAccounts = accounts.filter(
-        (root) => root.type === selectedType,
-    );
-    const parentAccount =
-        parentId === 'none'
-            ? undefined
-            : findAccount(accounts, Number(parentId));
-
     function handleTypeChange(type: string) {
         setSelectedType(type);
 
@@ -302,36 +234,15 @@ function AccountForm({
                     ))}
                 </select>
             </div>
-            <div className="space-y-1">
-                <label
-                    htmlFor="account-parent"
-                    className="block text-sm font-medium text-slate-700"
-                >
-                    Parent account
-                </label>
-                <input
-                    type="hidden"
-                    name="parent_id"
-                    value={parentId === 'none' ? '' : parentId}
-                />
-                <Select value={parentId} onValueChange={setParentId}>
-                    <SelectTrigger
-                        id="account-parent"
-                        className="h-auto w-full rounded border-slate-300 px-3 py-2 text-slate-900 shadow-none"
-                    >
-                        <SelectValue>
-                            {parentAccount?.name ?? 'None'}
-                        </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent align="start">
-                        <SelectItem value="none">None</SelectItem>
-                        <AccountOptions
-                            accounts={selectedRootAccounts}
-                            excludedIds={excludedIds}
-                        />
-                    </SelectContent>
-                </Select>
-            </div>
+            <AccountSelectTree
+                accounts={accounts}
+                label="Parent account"
+                name="parent_id"
+                rootType={selectedType}
+                value={parentId}
+                onValueChange={setParentId}
+                excludedIds={excludedIds}
+            />
             <button
                 type="submit"
                 className="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white"

@@ -19,10 +19,16 @@ class LedgerController extends Controller
         $accounts = Account::query()
             ->orderBy('type')
             ->orderBy('name')
-            ->get(['id', 'name', 'type']);
+            ->get(['id', 'name', 'type', 'parent_id']);
 
         $selectedAccountId = $request->integer('account');
         $selectedAccountId = $accounts->contains('id', $selectedAccountId) ? $selectedAccountId : null;
+
+        $page = max(1, $request->integer('page', 1));
+        $transactions = Transaction::query()
+            ->with('entries.account')
+            ->latest('date')
+            ->simplePaginate(20, ['*'], 'page', $page);
 
         return Inertia::render('ledger/index', [
             'selectedAccountId' => $selectedAccountId,
@@ -30,21 +36,20 @@ class LedgerController extends Controller
                 'id' => $account->id,
                 'name' => $account->name,
                 'type' => $account->type,
+                'parent_id' => $account->parent_id,
             ])->all(),
-            'recentTransactions' => Transaction::query()
-                ->with('entries.account')
-                ->latest('date')
-                ->limit(25)
-                ->get()->map(fn (Transaction $transaction) => [
-                    'id' => $transaction->id,
-                    'date' => $transaction->date->format('Y-m-d'),
-                    'description' => $transaction->description,
-                    'entries' => $transaction->entries->map(fn (Entry $entry) => [
-                        'id' => $entry->id,
-                        'account' => $entry->account?->name,
-                        'amount' => (float) $entry->amount,
-                    ])->all(),
+            'recentTransactions' => collect($transactions->items())->map(fn (Transaction $transaction) => [
+                'id' => $transaction->id,
+                'date' => $transaction->date->format('Y-m-d'),
+                'description' => $transaction->description,
+                'entries' => $transaction->entries->map(fn (Entry $entry) => [
+                    'id' => $entry->id,
+                    'account' => $entry->account?->name,
+                    'amount' => (float) $entry->amount,
                 ])->all(),
+            ])->all(),
+            'currentPage' => $transactions->currentPage(),
+            'hasMoreTransactions' => $transactions->hasMorePages(),
         ]);
     }
 
@@ -71,6 +76,17 @@ class LedgerController extends Controller
                 'memo' => $entryData['memo'] ?? null,
             ]);
         }
+
+        return Redirect::route('ledger.index');
+    }
+
+    public function destroy(Transaction $transaction): RedirectResponse
+    {
+        foreach ($transaction->entries as $entry) {
+            $entry->delete();
+        }
+
+        $transaction->delete();
 
         return Redirect::route('ledger.index');
     }

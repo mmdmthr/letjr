@@ -17,17 +17,17 @@ class AccountTest extends TestCase
     public function test_accounts_are_returned_as_an_ordered_tree(): void
     {
         $user = User::factory()->create();
-        $asset = Account::query()->create(['name' => 'Assets', 'type' => 'Asset']);
+        $asset = Account::query()->create(['name' => 'Assets', 'type' => 'asset']);
         $wallet = Account::query()->create([
             'name' => 'Wallet',
-            'type' => 'Cash',
+            'type' => 'asset',
             'parent_id' => $asset->id,
         ]);
-        $dining = Account::query()->create(['name' => 'Dining', 'type' => 'Expense']);
-        $liabilities = Account::query()->create(['name' => 'Liabilities', 'type' => 'Liability']);
-        $equity = Account::query()->create(['name' => 'Equity', 'type' => 'Equity']);
-        Account::query()->create(['name' => 'Income', 'type' => 'Income']);
-        Account::query()->create(['name' => 'Expenses', 'type' => 'Expense']);
+        $dining = Account::query()->create(['name' => 'Dining', 'type' => 'expense']);
+        $liabilities = Account::query()->create(['name' => 'Liabilities', 'type' => 'liability']);
+        $equity = Account::query()->create(['name' => 'Equity', 'type' => 'equity']);
+        Account::query()->create(['name' => 'Income', 'type' => 'income']);
+        Account::query()->create(['name' => 'Expenses', 'type' => 'expense']);
 
         $transaction = Transaction::query()->create([
             'date' => Carbon::today(),
@@ -46,13 +46,17 @@ class AccountTest extends TestCase
             ->where('accounts.0.balance', 100)
             ->where('accounts.0.children.0.name', 'Wallet')
             ->where('accounts.0.children.0.balance', 100)
-            ->where('accounts.1.name', 'Liabilities')
+            ->where('accounts.1.name', 'Dining')
+            ->where('accounts.1.balance', 25)
             ->where('accounts.2.name', 'Equity')
             ->where('accounts.2.balance', -125)
-            ->where('accounts.3.name', 'Income')
-            ->where('accounts.4.name', 'Expenses')
-            ->where('accounts.4.balance', 25)
-            ->has('accounts', 5));
+            ->where('accounts.3.name', 'Expenses')
+            ->where('accounts.3.balance', 0)
+            ->where('accounts.4.name', 'Income')
+            ->where('accounts.4.balance', 0)
+            ->where('accounts.5.name', 'Liabilities')
+            ->where('accounts.5.balance', 0)
+            ->has('accounts', 6));
     }
 
     public function test_account_can_be_updated(): void

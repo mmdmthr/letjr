@@ -17,6 +17,7 @@ Route::inertia('/', 'welcome')->name('home');
 
 	Route::get('ledger', [LedgerController::class, 'index'])->name('ledger.index');
 	Route::post('ledger', [LedgerController::class, 'store'])->name('ledger.store');
+	Route::delete('ledger/{transaction}', [LedgerController::class, 'destroy'])->name('ledger.destroy');
 
 	Route::get('reports/balance-sheet', [ReportController::class, 'balanceSheet'])->name('reports.balance-sheet');
 	Route::get('reports/cash-flow', [ReportController::class, 'cashFlow'])->name('reports.cash-flow');

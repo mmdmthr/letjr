@@ -351,7 +351,7 @@ export default function TabulatorLedger({ accounts, currentAccountId, onCurrentA
                     />
                 </div>
                 <p className="text-sm text-slate-500">
-                    Use the current account and a counterpart account to create a balanced entry. The direction is shown as Increase or Decrease so the signed journal amount stays clear and consistent with the existing accounting model.
+                    Use the current account and a counterpart account to create a balanced entry. Enter the amount under Increase or Decrease; the signed journal amount stays consistent with the existing accounting model.
                 </p>
             </div>
 
@@ -361,17 +361,17 @@ export default function TabulatorLedger({ accounts, currentAccountId, onCurrentA
 
             <div className="overflow-x-auto">
                 <div className="min-w-[1100px] space-y-2">
-                    <div className="grid grid-cols-[120px_minmax(170px,1.4fr)_minmax(240px,1.8fr)_170px_120px_minmax(200px,1.2fr)] gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    <div className="grid grid-cols-[120px_minmax(170px,1.4fr)_minmax(240px,1.8fr)_130px_130px_minmax(200px,1.2fr)] gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                         <span>Date</span>
                         <span>Description</span>
                         <span>Counterpart</span>
-                        <span>Amount</span>
-                        <span>Direction</span>
+                        <span>Increase</span>
+                        <span>Decrease</span>
                         <span>Memo</span>
                     </div>
 
                     {rows.map((row, index) => (
-                        <div key={index} className="grid grid-cols-[120px_minmax(170px,1.4fr)_minmax(240px,1.8fr)_170px_120px_minmax(200px,1.2fr)] gap-2">
+                        <div key={index} className="grid grid-cols-[120px_minmax(170px,1.4fr)_minmax(240px,1.8fr)_130px_130px_minmax(200px,1.2fr)] gap-2">
                             <input
                                 type="date"
                                 value={row.date}
@@ -403,19 +403,22 @@ export default function TabulatorLedger({ accounts, currentAccountId, onCurrentA
                                 type="number"
                                 min="0"
                                 step="0.01"
-                                value={row.amount}
-                                onChange={(event) => handleRowChange(index, { amount: event.target.value })}
+                                value={row.direction === 'increase' ? row.amount : ''}
+                                onChange={(event) => handleRowChange(index, { amount: event.target.value, direction: 'increase' })}
                                 placeholder="0.00"
+                                aria-label="Increase amount"
                                 className="h-10 rounded border border-slate-300 bg-white px-3 text-sm text-slate-800"
                             />
-                            <select
-                                value={row.direction}
-                                onChange={(event) => handleRowChange(index, { direction: event.target.value as Direction })}
-                                className="h-10 rounded border border-slate-300 bg-white px-2 text-sm text-slate-800"
-                            >
-                                <option value="increase">Increase</option>
-                                <option value="decrease">Decrease</option>
-                            </select>
+                            <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={row.direction === 'decrease' ? row.amount : ''}
+                                onChange={(event) => handleRowChange(index, { amount: event.target.value, direction: 'decrease' })}
+                                placeholder="0.00"
+                                aria-label="Decrease amount"
+                                className="h-10 rounded border border-slate-300 bg-white px-3 text-sm text-slate-800"
+                            />
                             <input
                                 type="text"
                                 value={row.memo}
